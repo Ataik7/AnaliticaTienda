@@ -61,6 +61,10 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Modelos\Venta.cs" />
+    <Compile Include="Servicios\ServicioAlmacenamientoJson.cs" />
+    <Compile Include="Servicios\ServicioProductos.cs" />
+    <Compile Include="Servicios\ServicioDatosIniciales.cs" />
+    <Compile Include="Servicios\ServicioVentas.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -84,8 +88,6 @@
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Servicios\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

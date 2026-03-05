@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace AnaliticaTienda.Modelos
 {
+    // Vista detallada de una venta (Venta + datos del Producto). Es útil para tablas y gráficos
     public class VentaDetalle
     {
         public int Id { get; set; }
@@ -26,6 +27,7 @@ namespace AnaliticaTienda.Modelos
 
         // Campos calculados 
 
+        // Unidades * PrecioVenta
         public decimal Subtotal
         {
             get
@@ -34,6 +36,7 @@ namespace AnaliticaTienda.Modelos
             }
         }
 
+        // Subtotal * % descuento
         public decimal ImporteDescuento
         {
             get
@@ -42,6 +45,7 @@ namespace AnaliticaTienda.Modelos
             }
         }
 
+        // Subtotal - descuento
         public decimal TotalVenta
         {
             get
@@ -50,6 +54,7 @@ namespace AnaliticaTienda.Modelos
             }
         }
 
+        // Unidades * PrecioCompra
         public decimal Coste
         {
             get
@@ -58,6 +63,7 @@ namespace AnaliticaTienda.Modelos
             }
         }
 
+        // TotalVenta - Coste
         public decimal Beneficio
         {
             get

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace AnaliticaTienda.Modelos
 {
+    // Producto del catálogo (para análisis de stock, márgenes y ventas)
     public class Producto
     {
         public int Id { get; set; }
@@ -21,6 +22,8 @@ namespace AnaliticaTienda.Modelos
         public bool Activo { get; set; }
 
         // Campos calculados (para tablas)
+
+        // Margen por unidad (venta - compra)
         public decimal MargenUnitario
         {
             get
@@ -28,6 +31,7 @@ namespace AnaliticaTienda.Modelos
                 return PrecioVenta - PrecioCompra;
             }
         }
+        // Margen en % sobre el precio de venta
         public decimal MargenPct
         {
             get
@@ -37,6 +41,7 @@ namespace AnaliticaTienda.Modelos
                     : (MargenUnitario / PrecioVenta) * 100m;
             }
         }
+        // Valor del stock a precio de venta
         public decimal ValorStockVenta
         {
             get

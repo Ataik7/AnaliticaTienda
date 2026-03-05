@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace AnaliticaTienda.Modelos
 {
+    // Métodos de pago posibles en una venta
     public enum MetodoPago
     {
         Efectivo = 0,

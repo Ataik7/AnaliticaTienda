@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace AnaliticaTienda.Modelos
 {
+    // Representa una venta realizada: producto vendido, cantidad, descuento aplicado...
     public class Venta
     {
         public int Id { get; set; }
