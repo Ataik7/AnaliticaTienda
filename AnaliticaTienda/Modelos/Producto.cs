@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace AnaliticaTienda.Modelos
 {
     // Producto del catálogo (para análisis de stock, márgenes y ventas)
+    [Serializable]
     public class Producto
     {
         public int Id { get; set; }

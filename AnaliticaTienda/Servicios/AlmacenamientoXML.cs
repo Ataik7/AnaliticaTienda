@@ -1,31 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
+using System.Xml.Serialization;
 
 namespace AnaliticaTienda.Servicios
 {
-    // Lee/guarda listas en JSON sin romper la app si hay errores de archivo/JSON.
-    public class ServicioAlmacenamientoJson
+    // Lee/guarda listas en XML sin romper la app si hay errores de archivo/XML
+    public class AlmacenamientoXML
     {
-        private readonly JsonSerializerSettings _settings = new JsonSerializerSettings
-        {
-            Formatting = Formatting.Indented,
-            DateParseHandling = DateParseHandling.DateTime,
-            NullValueHandling = NullValueHandling.Include
-        };
-
-        // Carga List<T> desde JSON; si falla devuelve lista vacía.
         public List<T> CargarLista<T>(string rutaFichero)
         {
             try
             {
                 if (!File.Exists(rutaFichero)) return new List<T>();
 
-                var json = File.ReadAllText(rutaFichero);
-                if (string.IsNullOrWhiteSpace(json)) return new List<T>();
+                var fi = new FileInfo(rutaFichero);
+                if (fi.Length == 0) return new List<T>();
 
-                return JsonConvert.DeserializeObject<List<T>>(json, _settings) ?? new List<T>();
+                var serializer = new XmlSerializer(typeof(List<T>));
+                using (var fs = File.OpenRead(rutaFichero))
+                {
+                    return (serializer.Deserialize(fs) as List<T>) ?? new List<T>();
+                }
             }
             catch
             {
@@ -33,7 +29,6 @@ namespace AnaliticaTienda.Servicios
             }
         }
 
-        // Guarda List<T> en JSON; si falla devuelve false y un mensaje de error.
         public bool IntentarGuardarLista<T>(string rutaFichero, List<T> items, out string error)
         {
             try
@@ -44,8 +39,11 @@ namespace AnaliticaTienda.Servicios
                 if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir))
                     Directory.CreateDirectory(dir);
 
-                var json = JsonConvert.SerializeObject(items ?? new List<T>(), _settings);
-                File.WriteAllText(rutaFichero, json);
+                var serializer = new XmlSerializer(typeof(List<T>));
+                using (var fs = File.Create(rutaFichero))
+                {
+                    serializer.Serialize(fs, items ?? new List<T>());
+                }
 
                 return true;
             }
@@ -56,7 +54,6 @@ namespace AnaliticaTienda.Servicios
             }
         }
 
-        // Guardado rápido (ignora el error para no crashear).
         public void GuardarLista<T>(string rutaFichero, List<T> items)
         {
             IntentarGuardarLista(rutaFichero, items, out _);

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace AnaliticaTienda.Modelos
 {
     // Vista detallada de una venta (Venta + datos del Producto). Es útil para tablas y gráficos
+    [Serializable]
     public class VentaDetalle
     {
         public int Id { get; set; }

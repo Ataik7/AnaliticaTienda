@@ -61,10 +61,16 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Modelos\Venta.cs" />
-    <Compile Include="Servicios\ServicioAlmacenamientoJson.cs" />
-    <Compile Include="Servicios\ServicioProductos.cs" />
-    <Compile Include="Servicios\ServicioDatosIniciales.cs" />
-    <Compile Include="Servicios\ServicioVentas.cs" />
+    <Compile Include="Servicios\AlmacenamientoBin.cs" />
+    <Compile Include="Servicios\FormatoDatos.cs" />
+    <Compile Include="Servicios\AlmacenamientoJson.cs" />
+    <Compile Include="Servicios\AlmacenamientoXML.cs" />
+    <Compile Include="Servicios\Productos.cs" />
+    <Compile Include="Servicios\DatosIniciales.cs" />
+    <Compile Include="Servicios\Ventas.cs" />
+    <EmbeddedResource Include="Form1.resx">
+      <DependentUpon>Form1.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>

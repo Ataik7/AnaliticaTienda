@@ -5,8 +5,8 @@ using AnaliticaTienda.Modelos;
 
 namespace AnaliticaTienda.Servicios
 {
-    // Genera datos de ejemplo (mínimo 50) para que la app siempre tenga contenido.
-    public static class ServicioDatosIniciales
+    // Genera datos de ejemplo (mínimo 50) para que la app siempre tenga contenido
+    public static class DatosIniciales
     {
         public static List<Producto> GenerarProductos(int cantidad)
         {
@@ -76,7 +76,7 @@ namespace AnaliticaTienda.Servicios
             return ventas;
         }
 
-        // Une Venta + Producto para sacar columnas y cálculos (TotalVenta, Beneficio...) en tablas.
+        // Une Venta + Producto para sacar columnas y cálculos (TotalVenta, Beneficio...) en tablas
         public static List<VentaDetalle> ConstruirVentasDetalle(IReadOnlyList<Venta> ventas, IReadOnlyDictionary<int, Producto> productosPorId)
         {
             var detalles = new List<VentaDetalle>(ventas.Count);
