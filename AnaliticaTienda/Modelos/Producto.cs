@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,6 +26,7 @@ namespace AnaliticaTienda.Modelos
         // Campos calculados (para tablas)
 
         // Margen por unidad (venta - compra)
+        [JsonIgnore]
         public decimal MargenUnitario
         {
             get
@@ -33,6 +35,7 @@ namespace AnaliticaTienda.Modelos
             }
         }
         // Margen en % sobre el precio de venta
+        [JsonIgnore]
         public decimal MargenPct
         {
             get
@@ -43,6 +46,7 @@ namespace AnaliticaTienda.Modelos
             }
         }
         // Valor del stock a precio de venta
+        [JsonIgnore]
         public decimal ValorStockVenta
         {
             get

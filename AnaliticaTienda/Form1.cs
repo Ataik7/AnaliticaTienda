@@ -9,7 +9,7 @@ namespace AnaliticaTienda
 {
     public partial class Form1 : Form
     {
-        // Datos en memoria (los usarás luego para tablas/gráficos)
+        // Datos en memoria 
         private List<Producto> _productos;
         private List<Venta> _ventas;
         private List<VentaDetalle> _ventasDetalle;
@@ -21,13 +21,13 @@ namespace AnaliticaTienda
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Carpeta donde se ejecuta el EXE (bin\Debug\ o bin\Release\)
+            // Carpeta donde se ejecuta el EXE
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
-            // Elige formato de persistencia: Json / Xml / Bin
-            var formato = FormatoDatos.Json; // cambia a FormatoDatos.Xml o FormatoDatos.Bin para probar
+            // Formato de persistencia: Json / Xml / Bin
+            var formato = FormatoDatos.Json; 
 
-            // 1) Cargar o generar (mínimo 50) productos y ventas
+            // 1) Cargar o generar productos y ventas
             var srvProductos = new Productos(baseDir, formato);
             _productos = srvProductos.CargarOGenerar(50);
 
@@ -38,13 +38,9 @@ namespace AnaliticaTienda
             var productosPorId = _productos.ToDictionary(p => p.Id, p => p);
             _ventasDetalle = DatosIniciales.ConstruirVentasDetalle(_ventas, productosPorId);
 
-            // 3) Verificación rápida (puedes quitarlo luego)
+            // 3) Verificación rápida
             Text = $"AnaliticaTienda - Productos: {_productos.Count} | Ventas: {_ventas.Count} | Detalle: {_ventasDetalle.Count} ({formato})";
 
-            // A partir de aquí, lo siguiente del proyecto es:
-            // - Mostrar datos en DataGridView
-            // - Añadir filtros
-            // - Añadir gráficos
         }
     }
 }
