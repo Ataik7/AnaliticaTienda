@@ -15,7 +15,16 @@ namespace AnaliticaTienda
         private List<Venta> _ventas;
         private List<VentaDetalle> _ventasDetalle;
 
+        private readonly InformeDashboardService _informeSrv = new InformeDashboardService();
+
         private TabControl _tabControl;
+
+        // --- Estructura del informe (cabecera) ---
+        private Panel _panelHeader;
+        private Label _lblTituloInforme;
+        private Label _lblFechaGeneracion;
+        private Label _lblPagina;
+        private DateTime _fechaGeneracionInforme;
 
         // Tab 1
         private DataGridView _gridHistoricoVentas;
@@ -51,17 +60,22 @@ namespace AnaliticaTienda
 
         private void ConfigurarFormulario()
         {
-            this.Text = "Analítica Tienda - Dashboard Avanzado de Informes";
-            this.WindowState = FormWindowState.Maximized;
-            this.MinimumSize = new Size(1024, 768);
-            this.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, ((byte)(0)));
+            Text = "Analítica Tienda - Dashboard Avanzado de Informes";
+            WindowState = FormWindowState.Maximized;
+            MinimumSize = new Size(1024, 768);
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point, ((byte)(0)));
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            _fechaGeneracionInforme = DateTime.Now;
+
             CargarDatos();
             ConstruirUI();
-            PoblarFiltrosYDatosGenerales();
+            PoblarFiltros();
+
+            RefrescarInforme();
+            ActualizarEncabezadoInforme();
         }
 
         private void CargarDatos()
@@ -79,183 +93,84 @@ namespace AnaliticaTienda
             _ventasDetalle = DatosIniciales.ConstruirVentasDetalle(_ventas, productosPorId);
         }
 
-        private void PoblarFiltrosYDatosGenerales()
+        private void PoblarFiltros()
         {
-            var categorias = _productos.Select(p => p.Categoria).Distinct().ToList();
+            var categorias = _productos.Select(p => p.Categoria).Distinct().OrderBy(x => x).ToList();
             categorias.Insert(0, "Todas");
+
             _cboCategoriaFiltro.DataSource = categorias;
             _cboCategoriaFiltro.SelectedIndex = 0;
-            _cboCategoriaFiltro.SelectedIndexChanged += (s, ev) => ActualizarTab1Filtro();
 
-            _numStockMinimo.ValueChanged += (s, ev) => ActualizarTab2Filtro();
-
-            ActualizarDatosTab1();
-            ActualizarTab1Filtro();
-            ActualizarTab2Filtro();
-            ActualizarDatosTab2();
-            ActualizarDatosTab3();
-            ActualizarDatosTab4();
+            _cboCategoriaFiltro.SelectedIndexChanged += (s, e) => RefrescarInforme();
+            _numStockMinimo.ValueChanged += (s, e) => RefrescarInforme();
         }
 
-        private void ActualizarDatosTab1()
+        private InformeDashboardService.FiltrosInforme LeerFiltros()
         {
-            var metricas = _ventasDetalle.GroupBy(v => v.Categoria)
-                .Select(g => new
-                {
-                    Categoria = g.Key,
-                    TotalUnidades = g.Sum(x => x.Unidades),
-                    TotalIngresos = Math.Round(g.Sum(x => x.TotalVenta), 2),
-                    BeneficioTotal = Math.Round(g.Sum(x => x.Beneficio), 2)
-                }).ToList();
-            _gridMetricasGlobales.DataSource = metricas;
-
-            // Chart 1: Evolucion Ventas (Eje X: Fecha, Eje Y: TotalVenta)
-            var ventasPorDia = _ventasDetalle.GroupBy(v => v.Fecha.Date)
-                .Select(g => new { Fecha = g.Key, Total = g.Sum(x => x.TotalVenta) })
-                .OrderBy(x => x.Fecha).ToList();
-            _chartEvolucionVentas.Series[0].Points.Clear();
-            foreach (var v in ventasPorDia)
-                _chartEvolucionVentas.Series[0].Points.AddXY(v.Fecha.ToShortDateString(), v.Total);
-
-            // Chart 2: Distribucion Ventas (Pie Chart de Ingresos por Categoria)
-            _chartDistribucionVentas.Series[0].Points.Clear();
-            foreach (var m in metricas)
-                _chartDistribucionVentas.Series[0].Points.AddXY(m.Categoria, m.TotalIngresos);
-        }
-
-        private void ActualizarTab1Filtro()
-        {
-            string categoria = _cboCategoriaFiltro.SelectedItem?.ToString();
-            if (string.IsNullOrEmpty(categoria) || categoria == "Todas")
-                _gridHistoricoVentas.DataSource = _ventasDetalle.OrderByDescending(v => v.Fecha).ToList();
-            else
-                _gridHistoricoVentas.DataSource = _ventasDetalle.Where(v => v.Categoria == categoria).OrderByDescending(v => v.Fecha).ToList();
-        }
-
-        private void ActualizarDatosTab2()
-        {
-            var topRentables = _productos.OrderByDescending(p => p.PrecioVenta - p.PrecioCompra)
-                .Take(10)
-                .Select(p => new
-                {
-                    p.Id,
-                    p.Nombre,
-                    p.Categoria,
-                    PrecioCompra = Math.Round(p.PrecioCompra, 2),
-                    PrecioVenta = Math.Round(p.PrecioVenta, 2),
-                    MargenUnitario = Math.Round(p.MargenUnitario, 2),
-                    MargenPct = Math.Round(p.MargenPct, 2).ToString() + "%"
-                }).ToList();
-            _gridTopRentables.DataSource = topRentables;
-
-            // Chart 3: Stock por Categoria
-            var stockCategoria = _productos.GroupBy(p => p.Categoria)
-                .Select(g => new { Categoria = g.Key, StockTotal = g.Sum(x => x.Stock) }).ToList();
-            _chartStockCategoria.Series[0].Points.Clear();
-            foreach (var s in stockCategoria)
-                _chartStockCategoria.Series[0].Points.AddXY(s.Categoria, s.StockTotal);
-
-            // Chart 4: Top 5 Productos Mayor Beneficio Total Histórico
-            var beneficioProd = _ventasDetalle.GroupBy(v => v.ProductoNombre)
-                .Select(g => new { Producto = g.Key, Beneficio = g.Sum(x => x.Beneficio) })
-                .OrderByDescending(x => x.Beneficio).Take(5).ToList();
-            _chartTopRentables.Series[0].Points.Clear();
-            foreach (var bp in beneficioProd)
-                _chartTopRentables.Series[0].Points.AddXY(bp.Producto, Math.Round(bp.Beneficio, 2));
-        }
-
-        private void ActualizarTab2Filtro()
-        {
-            int stockMinimo = (int)_numStockMinimo.Value;
-            var listado = _productos.Where(p => p.Stock >= stockMinimo).Select(p => new
+            return new InformeDashboardService.FiltrosInforme
             {
-                p.Id,
-                p.Nombre,
-                p.Categoria,
-                p.Stock,
-                p.PrecioVenta,
-                ValorStockVenta = Math.Round(p.ValorStockVenta, 2)
-            }).ToList();
-            _gridInventario.DataSource = listado;
+                Categoria = _cboCategoriaFiltro.SelectedItem?.ToString() ?? "Todas",
+                StockMinimo = (int)_numStockMinimo.Value
+            };
         }
 
-        private void ActualizarDatosTab3()
+        private void RefrescarInforme()
         {
-            // Grid 5: Vendedores
-            var vendedores = _ventasDetalle.GroupBy(v => v.Vendedor)
-                .Select(g => new
-                {
-                    Vendedor = g.Key,
-                    VentasRealizadas = g.Count(),
-                    UnidadesVendidas = g.Sum(x => x.Unidades),
-                    TotalFacturado = Math.Round(g.Sum(x => x.TotalVenta), 2),
-                    BeneficioGenerado = Math.Round(g.Sum(x => x.Beneficio), 2)
-                }).ToList();
-            _gridAnalisisVendedor.DataSource = vendedores;
+            var filtros = LeerFiltros();
+            var res = _informeSrv.Generar(_productos, _ventasDetalle, filtros);
 
-            // Grid 6: Metodos de Pago
-            var pagos = _ventasDetalle.GroupBy(v => v.MetodoPago)
-                .Select(g => new
-                {
-                    MetodoPago = g.Key.ToString(),
-                    Transacciones = g.Count(),
-                    ImporteTotal = Math.Round(g.Sum(x => x.TotalVenta), 2)
-                }).ToList();
-            _gridAnalisisMetodoPago.DataSource = pagos;
+            // TABLAS
+            _gridHistoricoVentas.DataSource = res.HistoricoVentas;
+            _gridMetricasGlobales.DataSource = res.MetricasPorCategoria;
+            _gridInventario.DataSource = res.Inventario;
+            _gridTopRentables.DataSource = res.TopRentables;
+            _gridAnalisisVendedor.DataSource = res.Vendedores;
+            _gridAnalisisMetodoPago.DataSource = res.Pagos;
+            _gridRendimientoCiudad.DataSource = res.Ciudades;
+            _gridCosteIngresoCategoria.DataSource = res.CosteVsIngresoCategoria;
 
-            // Chart 5: Beneficio Vendedor
-            _chartBeneficioVendedor.Series[0].Points.Clear();
-            foreach (var v in vendedores)
-                _chartBeneficioVendedor.Series[0].Points.AddXY(v.Vendedor, v.BeneficioGenerado);
+            // GRÁFICOS
+            PintarSerie(_chartEvolucionVentas, 0, res.EvolucionVentas);
+            PintarSerie(_chartDistribucionVentas, 0, res.DistribucionIngresosCategoria);
+            PintarSerie(_chartStockCategoria, 0, res.StockPorCategoria);
+            PintarSerie(_chartTopRentables, 0, res.TopProductosBeneficio);
+            PintarSerie(_chartBeneficioVendedor, 0, res.BeneficioPorVendedor);
+            PintarSerie(_chartDistribucionPagos, 0, res.ImportePorMetodoPago);
+            PintarSerie(_chartVentasCiudad, 0, res.IngresosPorCiudad);
 
-            // Chart 6: Distribucion Metodos Pago
-            _chartDistribucionPagos.Series[0].Points.Clear();
-            foreach (var p in pagos)
-                _chartDistribucionPagos.Series[0].Points.AddXY(p.MetodoPago, p.ImporteTotal);
+            // Chart 8 tiene 2 series (Coste e Ingresos)
+            PintarSerie(_chartCosteIngreso, 0, res.CostePorCategoria);
+            PintarSerie(_chartCosteIngreso, 1, res.IngresosPorCategoria);
         }
 
-        private void ActualizarDatosTab4()
+        private static void PintarSerie(Chart chart, int serieIndex, List<(string X, decimal Y)> puntos)
         {
-            // Grid 7: Ciudades
-            var ciudades = _ventasDetalle.GroupBy(v => v.Ciudad)
-                .Select(g => new
-                {
-                    Ciudad = g.Key,
-                    NumeroVentas = g.Count(),
-                    Ingresos = Math.Round(g.Sum(x => x.TotalVenta), 2),
-                    Beneficio = Math.Round(g.Sum(x => x.Beneficio), 2)
-                }).ToList();
-            _gridRendimientoCiudad.DataSource = ciudades;
+            if (chart == null) return;
+            if (chart.Series.Count <= serieIndex) return;
 
-            // Grid 8: Costos vs Ingresos Categoria
-            var costIngCol = _ventasDetalle.GroupBy(v => v.Categoria)
-                .Select(g => new
-                {
-                    Categoria = g.Key,
-                    CostoVentas = Math.Round(g.Sum(x => x.Coste), 2),
-                    IngresosTotales = Math.Round(g.Sum(x => x.TotalVenta), 2)
-                }).ToList();
-            _gridCosteIngresoCategoria.DataSource = costIngCol;
+            var serie = chart.Series[serieIndex];
+            serie.Points.Clear();
 
-            // Chart 7: Ventas por Ciudad
-            _chartVentasCiudad.Series[0].Points.Clear();
-            foreach (var c in ciudades)
-                _chartVentasCiudad.Series[0].Points.AddXY(c.Ciudad, c.Ingresos);
-
-            // Chart 8: Comparativa Costo/Ingreso
-            _chartCosteIngreso.Series[0].Points.Clear();
-            _chartCosteIngreso.Series[1].Points.Clear();
-            foreach (var ci in costIngCol)
-            {
-                _chartCosteIngreso.Series[0].Points.AddXY(ci.Categoria, ci.CostoVentas);
-                _chartCosteIngreso.Series[1].Points.AddXY(ci.Categoria, ci.IngresosTotales);
-            }
+            foreach (var (x, y) in puntos)
+                serie.Points.AddXY(x, y);
         }
 
-        // --- Helper de UI ---
+        // --- UI ---
         private void ConstruirUI()
         {
             _tabControl = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10F, FontStyle.Regular) };
+
+            // Cabecera informe
+            _panelHeader = new Panel { Dock = DockStyle.Top, Height = 50, BackColor = Color.WhiteSmoke };
+            _lblTituloInforme = new Label { AutoSize = true, Location = new Point(12, 6), Font = new Font("Segoe UI", 12F, FontStyle.Bold) };
+            _lblFechaGeneracion = new Label { AutoSize = true, Location = new Point(12, 28), Font = new Font("Segoe UI", 9F, FontStyle.Regular) };
+            _lblPagina = new Label { AutoSize = true, Font = new Font("Segoe UI", 10F, FontStyle.Bold), Top = 16, Left = 0, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+
+            _panelHeader.Controls.Add(_lblTituloInforme);
+            _panelHeader.Controls.Add(_lblFechaGeneracion);
+            _panelHeader.Controls.Add(_lblPagina);
+
+            _lblFechaGeneracion.Text = "Generado: " + _fechaGeneracionInforme.ToString("dd/MM/yyyy HH:mm");
 
             // ---------------- TAB 1 ----------------
             var tab1 = new TabPage("1. Visión General ");
@@ -266,7 +181,7 @@ namespace AnaliticaTienda
             _gridHistoricoVentas = CrearGrid();
             _cboCategoriaFiltro = new ComboBox { Width = 200, DropDownStyle = ComboBoxStyle.DropDownList };
             var panelGrid1 = CrearContenedorFiltro("Tabla 1: Histórico de Ventas (Filtro Categoría)", "Filtrar Categoría:", _cboCategoriaFiltro, _gridHistoricoVentas);
-            
+
             _gridMetricasGlobales = CrearGrid();
             var gbMeticas = CrearGroupBox("Tabla 2: Métricas Globales por Categoría", _gridMetricasGlobales);
 
@@ -369,23 +284,41 @@ namespace AnaliticaTienda
             split4V.Panel2.Controls.Add(split4Der);
             tab4.Controls.Add(split4V);
 
-
             _tabControl.TabPages.Add(tab1);
             _tabControl.TabPages.Add(tab2);
             _tabControl.TabPages.Add(tab3);
             _tabControl.TabPages.Add(tab4);
 
-            this.Controls.Add(_tabControl);
+            Controls.Add(_tabControl);
+            Controls.Add(_panelHeader);
+
+            _tabControl.SelectedIndexChanged += (s, e) => ActualizarEncabezadoInforme();
+            Resize += (s, e) => ActualizarEncabezadoInforme();
+
+            ActualizarEncabezadoInforme();
+        }
+
+        private void ActualizarEncabezadoInforme()
+        {
+            if (_tabControl == null || _lblPagina == null || _lblTituloInforme == null) return;
+
+            int total = _tabControl.TabPages.Count;
+            int actual = _tabControl.SelectedIndex + 1;
+
+            _lblPagina.Text = $"Página {actual} de {total}";
+            _lblPagina.Left = ClientSize.Width - _lblPagina.Width - 20;
+
+            var seccion = _tabControl.SelectedTab?.Text?.Trim();
+            _lblTituloInforme.Text = string.IsNullOrWhiteSpace(seccion)
+                ? "Analítica Tienda - Informe"
+                : $"Analítica Tienda - Informe ({seccion})";
         }
 
         private SplitContainer CrearSplit(Orientation orientation)
-        {
-            return new SplitContainer { Dock = DockStyle.Fill, Orientation = orientation, BorderStyle = BorderStyle.FixedSingle };
-        }
+            => new SplitContainer { Dock = DockStyle.Fill, Orientation = orientation, BorderStyle = BorderStyle.FixedSingle };
 
         private DataGridView CrearGrid()
-        {
-            return new DataGridView
+            => new DataGridView
             {
                 Dock = DockStyle.Fill,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
@@ -396,27 +329,27 @@ namespace AnaliticaTienda
                 BackgroundColor = Color.White,
                 Font = new Font("Segoe UI", 8.5F)
             };
-        }
 
         private Chart CrearGrafico(SeriesChartType tipo, string nombreSerie)
         {
             var chart = new Chart { Dock = DockStyle.Fill };
+
             var area = new ChartArea();
             area.AxisX.MajorGrid.LineColor = Color.LightGray;
             area.AxisY.MajorGrid.LineColor = Color.LightGray;
             area.AxisX.LabelStyle.Font = new Font("Segoe UI", 8F);
             area.AxisY.LabelStyle.Font = new Font("Segoe UI", 8F);
             chart.ChartAreas.Add(area);
-            
-            var serie = new Series(nombreSerie) 
-            { 
-                ChartType = tipo, 
+
+            var serie = new Series(nombreSerie)
+            {
+                ChartType = tipo,
                 IsValueShownAsLabel = (tipo != SeriesChartType.Line) && (tipo != SeriesChartType.Doughnut) && (tipo != SeriesChartType.Pie),
                 Font = new Font("Segoe UI", 8F),
                 BorderWidth = 3
             };
             chart.Series.Add(serie);
-            
+
             chart.Legends.Add(new Legend { Docking = Docking.Bottom, Font = new Font("Segoe UI", 8F) });
             return chart;
         }
@@ -437,18 +370,25 @@ namespace AnaliticaTienda
         private GroupBox CrearContenedorFiltro(string titulo, string textoFiltro, Control controlFiltro, DataGridView grid)
         {
             var gb = CrearGroupBox(titulo, grid);
-            
+
             var topPanel = new Panel { Dock = DockStyle.Top, Height = 35 };
-            var lbl = new Label { Text = textoFiltro, Location = new Point(0, 5), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Regular) };
+            var lbl = new Label
+            {
+                Text = textoFiltro,
+                Location = new Point(0, 5),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            };
+
             controlFiltro.Location = new Point(130, 2);
             controlFiltro.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
-            
+
             topPanel.Controls.Add(lbl);
             topPanel.Controls.Add(controlFiltro);
-            
+
             grid.Dock = DockStyle.Fill;
             gb.Controls.Add(topPanel);
-            
+
             grid.BringToFront();
             return gb;
         }
