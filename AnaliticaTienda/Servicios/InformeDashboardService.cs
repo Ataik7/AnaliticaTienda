@@ -82,8 +82,16 @@ namespace AnaliticaTienda.Servicios
                 .ToList();
 
             // --- TAB 2: Inventario + Top ---
-            res.Inventario = productos
-                .Where(p => p.Stock >= filtros.StockMinimo)
+            // Productos filtrados por stock mínimo y (opcional) categoría
+            var productosFiltrados = productos
+                .Where(p => p.Stock >= filtros.StockMinimo);
+
+            if (!string.IsNullOrWhiteSpace(filtros.Categoria) && filtros.Categoria != "Todas")
+                productosFiltrados = productosFiltrados.Where(p => p.Categoria == filtros.Categoria);
+
+            var productosFiltradosList = productosFiltrados.ToList();
+
+            res.Inventario = productosFiltradosList
                 .Select(p => new
                 {
                     p.Id,
@@ -96,7 +104,7 @@ namespace AnaliticaTienda.Servicios
                 .OrderByDescending(x => x.ValorStockVenta)
                 .ToList();
 
-            res.TopRentables = productos
+            res.TopRentables = productosFiltradosList
                 .OrderByDescending(p => p.MargenUnitario)
                 .Take(10)
                 .Select(p => new
@@ -111,7 +119,7 @@ namespace AnaliticaTienda.Servicios
                 })
                 .ToList();
 
-            var stockCategoria = productos
+            var stockCategoria = productosFiltradosList
                 .GroupBy(p => p.Categoria)
                 .Select(g => new { Categoria = g.Key, StockTotal = g.Sum(x => x.Stock) })
                 .OrderByDescending(x => x.StockTotal)
@@ -121,7 +129,8 @@ namespace AnaliticaTienda.Servicios
                 .Select(x => (x.Categoria, (decimal)x.StockTotal))
                 .ToList();
 
-            var beneficioProd = ventasDetalle
+            // Top 5 productos con más beneficio: con filtro
+            var beneficioProd = ventasDetalleFiltradas
                 .GroupBy(v => v.ProductoNombre)
                 .Select(g => new { Producto = g.Key, Beneficio = g.Sum(x => x.Beneficio) })
                 .OrderByDescending(x => x.Beneficio)

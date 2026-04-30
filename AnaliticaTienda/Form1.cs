@@ -16,6 +16,16 @@ namespace AnaliticaTienda
         private List<VentaDetalle> _ventasDetalle;
 
         private readonly InformeDashboardService _informeSrv = new InformeDashboardService();
+        private readonly FormatoDatos _formatoDatos = FormatoDatos.Json; // Para cambiar a XML o BIN
+
+        private readonly BindingSource _bsHistorico = new BindingSource();
+        private readonly BindingSource _bsMetricas = new BindingSource();
+        private readonly BindingSource _bsInventario = new BindingSource();
+        private readonly BindingSource _bsTopRentables = new BindingSource();
+        private readonly BindingSource _bsVendedores = new BindingSource();
+        private readonly BindingSource _bsPagos = new BindingSource();
+        private readonly BindingSource _bsCiudades = new BindingSource();
+        private readonly BindingSource _bsCosteIngreso = new BindingSource();
 
         private TabControl _tabControl;
 
@@ -24,6 +34,8 @@ namespace AnaliticaTienda
         private Label _lblTituloInforme;
         private Label _lblFechaGeneracion;
         private Label _lblPagina;
+        private Panel _panelFooter;
+        private Label _lblFooter;
         private DateTime _fechaGeneracionInforme;
 
         // Tab 1
@@ -81,12 +93,11 @@ namespace AnaliticaTienda
         private void CargarDatos()
         {
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var formato = FormatoDatos.Json;
 
-            var srvProductos = new Productos(baseDir, formato);
+            var srvProductos = new Productos(baseDir, _formatoDatos);
             _productos = srvProductos.CargarOGenerar(50);
 
-            var srvVentas = new Ventas(baseDir, formato);
+            var srvVentas = new Ventas(baseDir, _formatoDatos);
             _ventas = srvVentas.CargarOGenerar(_productos, 50);
 
             var productosPorId = _productos.ToDictionary(p => p.Id, p => p);
@@ -102,7 +113,8 @@ namespace AnaliticaTienda
             _cboCategoriaFiltro.SelectedIndex = 0;
 
             _cboCategoriaFiltro.SelectedIndexChanged += (s, e) => RefrescarInforme();
-            _numStockMinimo.ValueChanged += (s, e) => RefrescarInforme();
+            _numStockMinimo.MouseUp += (s, e) => RefrescarInforme();
+            _numStockMinimo.KeyUp += (s, e) => RefrescarInforme();
         }
 
         private InformeDashboardService.FiltrosInforme LeerFiltros()
@@ -119,15 +131,26 @@ namespace AnaliticaTienda
             var filtros = LeerFiltros();
             var res = _informeSrv.Generar(_productos, _ventasDetalle, filtros);
 
-            // TABLAS
-            _gridHistoricoVentas.DataSource = res.HistoricoVentas;
-            _gridMetricasGlobales.DataSource = res.MetricasPorCategoria;
-            _gridInventario.DataSource = res.Inventario;
-            _gridTopRentables.DataSource = res.TopRentables;
-            _gridAnalisisVendedor.DataSource = res.Vendedores;
-            _gridAnalisisMetodoPago.DataSource = res.Pagos;
-            _gridRendimientoCiudad.DataSource = res.Ciudades;
-            _gridCosteIngresoCategoria.DataSource = res.CosteVsIngresoCategoria;
+            // TABLAS (BindingSource)
+            _bsHistorico.DataSource = res.HistoricoVentas;
+            _bsMetricas.DataSource = res.MetricasPorCategoria;
+            _bsInventario.DataSource = res.Inventario;
+            _bsTopRentables.DataSource = res.TopRentables;
+            _bsVendedores.DataSource = res.Vendedores;
+            _bsPagos.DataSource = res.Pagos;
+            _bsCiudades.DataSource = res.Ciudades;
+            _bsCosteIngreso.DataSource = res.CosteVsIngresoCategoria;
+
+            _gridHistoricoVentas.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            _gridMetricasGlobales.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _gridInventario.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _gridTopRentables.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _gridAnalisisVendedor.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _gridAnalisisMetodoPago.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _gridRendimientoCiudad.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _gridCosteIngresoCategoria.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+
+            FormatearTablas();
 
             // GRÁFICOS
             PintarSerie(_chartEvolucionVentas, 0, res.EvolucionVentas);
@@ -171,6 +194,11 @@ namespace AnaliticaTienda
             _panelHeader.Controls.Add(_lblPagina);
 
             _lblFechaGeneracion.Text = "Generado: " + _fechaGeneracionInforme.ToString("dd/MM/yyyy HH:mm");
+
+            // Pie informe (footer)
+            _panelFooter = new Panel { Dock = DockStyle.Bottom, Height = 28, BackColor = Color.WhiteSmoke };
+            _lblFooter = new Label { AutoSize = true, Location = new Point(12, 6), Font = new Font("Segoe UI", 9F, FontStyle.Regular) };
+            _panelFooter.Controls.Add(_lblFooter);
 
             // ---------------- TAB 1 ----------------
             var tab1 = new TabPage("1. Visión General ");
@@ -290,7 +318,28 @@ namespace AnaliticaTienda
             _tabControl.TabPages.Add(tab4);
 
             Controls.Add(_tabControl);
+            Controls.Add(_panelFooter); 
             Controls.Add(_panelHeader);
+
+            // Enlazar grids a BindingSource (para poder reordenar)
+            _gridHistoricoVentas.DataSource = _bsHistorico;
+            _gridMetricasGlobales.DataSource = _bsMetricas;
+            _gridInventario.DataSource = _bsInventario;
+            _gridTopRentables.DataSource = _bsTopRentables;
+            _gridAnalisisVendedor.DataSource = _bsVendedores;
+            _gridAnalisisMetodoPago.DataSource = _bsPagos;
+            _gridRendimientoCiudad.DataSource = _bsCiudades;
+            _gridCosteIngresoCategoria.DataSource = _bsCosteIngreso;
+
+            // Habilitar orden asc/desc al clickar en cabeceras
+            HabilitarOrdenClick(_gridHistoricoVentas, _bsHistorico);
+            HabilitarOrdenClick(_gridMetricasGlobales, _bsMetricas);
+            HabilitarOrdenClick(_gridInventario, _bsInventario);
+            HabilitarOrdenClick(_gridTopRentables, _bsTopRentables);
+            HabilitarOrdenClick(_gridAnalisisVendedor, _bsVendedores);
+            HabilitarOrdenClick(_gridAnalisisMetodoPago, _bsPagos);
+            HabilitarOrdenClick(_gridRendimientoCiudad, _bsCiudades);
+            HabilitarOrdenClick(_gridCosteIngresoCategoria, _bsCosteIngreso);
 
             _tabControl.SelectedIndexChanged += (s, e) => ActualizarEncabezadoInforme();
             Resize += (s, e) => ActualizarEncabezadoInforme();
@@ -312,6 +361,15 @@ namespace AnaliticaTienda
             _lblTituloInforme.Text = string.IsNullOrWhiteSpace(seccion)
                 ? "Analítica Tienda - Informe"
                 : $"Analítica Tienda - Informe ({seccion})";
+
+            if (_lblFooter != null)
+            {
+                _lblFooter.Text =
+                    $"Grupo: Iván Gastineau Laine & Pablo Nicolás Gallego | " +
+                    $"Formato: {_formatoDatos.ToString().ToUpper()} | " +
+                    $"Productos: {_productos?.Count ?? 0} | Ventas: {_ventas?.Count ?? 0} | " +
+                    $"Fuente: Data/";
+            }
         }
 
         private SplitContainer CrearSplit(Orientation orientation)
@@ -324,11 +382,17 @@ namespace AnaliticaTienda
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 ReadOnly = true,
                 AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
                 RowHeadersVisible = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
                 BackgroundColor = Color.White,
-                Font = new Font("Segoe UI", 8.5F)
+                Font = new Font("Segoe UI", 8.5F),
+                ScrollBars = ScrollBars.Both,
+
+                AllowUserToOrderColumns = true
             };
+
 
         private Chart CrearGrafico(SeriesChartType tipo, string nombreSerie)
         {
@@ -339,15 +403,43 @@ namespace AnaliticaTienda
             area.AxisY.MajorGrid.LineColor = Color.LightGray;
             area.AxisX.LabelStyle.Font = new Font("Segoe UI", 8F);
             area.AxisY.LabelStyle.Font = new Font("Segoe UI", 8F);
+
+            if (tipo != SeriesChartType.Pie && tipo != SeriesChartType.Doughnut)
+            {
+                area.AxisX.Interval = 1;
+                area.AxisX.LabelStyle.Angle = -45;
+                area.AxisX.LabelStyle.IsStaggered = true;
+            }
+
+            if (tipo == SeriesChartType.Bar)
+            {
+                area.AxisY.Interval = 1;
+            }
+
             chart.ChartAreas.Add(area);
 
             var serie = new Series(nombreSerie)
             {
                 ChartType = tipo,
-                IsValueShownAsLabel = (tipo != SeriesChartType.Line) && (tipo != SeriesChartType.Doughnut) && (tipo != SeriesChartType.Pie),
+                IsValueShownAsLabel = (tipo != SeriesChartType.Line) &&
+                                      (tipo != SeriesChartType.Doughnut) &&
+                                      (tipo != SeriesChartType.Pie),
                 Font = new Font("Segoe UI", 8F),
-                BorderWidth = 3
+                BorderWidth = (tipo == SeriesChartType.Line) ? 2 : 3
             };
+
+            if (tipo == SeriesChartType.Pie || tipo == SeriesChartType.Doughnut)
+            {
+                serie.IsValueShownAsLabel = true;
+                serie.Label = "#VALX (#PERCENT{P0})";
+                serie["PieLabelStyle"] = "Outside";
+                serie["PieLineColor"] = "Gray";
+            }
+            else if (serie.IsValueShownAsLabel)
+            {
+                serie.LabelFormat = "N0";
+            }
+
             chart.Series.Add(serie);
 
             chart.Legends.Add(new Legend { Docking = Docking.Bottom, Font = new Font("Segoe UI", 8F) });
@@ -369,28 +461,174 @@ namespace AnaliticaTienda
 
         private GroupBox CrearContenedorFiltro(string titulo, string textoFiltro, Control controlFiltro, DataGridView grid)
         {
-            var gb = CrearGroupBox(titulo, grid);
+            var gb = new GroupBox
+            {
+                Text = titulo,
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                Padding = new Padding(10)
+            };
+
+            var content = new Panel { Dock = DockStyle.Fill };
 
             var topPanel = new Panel { Dock = DockStyle.Top, Height = 35 };
             var lbl = new Label
             {
                 Text = textoFiltro,
-                Location = new Point(0, 5),
+                Location = new Point(0, 7),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular)
             };
 
-            controlFiltro.Location = new Point(130, 2);
+            controlFiltro.Location = new Point(130, 4);
             controlFiltro.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
 
             topPanel.Controls.Add(lbl);
             topPanel.Controls.Add(controlFiltro);
 
             grid.Dock = DockStyle.Fill;
-            gb.Controls.Add(topPanel);
 
-            grid.BringToFront();
+            // Orden correcto: Fill primero, luego Top (para que el Top quede arriba)
+            content.Controls.Add(grid);
+            content.Controls.Add(topPanel);
+
+            gb.Controls.Add(content);
             return gb;
+        }
+
+        private void FormatearTablas()
+        {
+            // ===== RENOMBRAR HEADERS (sin ocultar) =====
+
+            // Histórico
+            Renombrar(_gridHistoricoVentas, "Id", "ID");
+            Renombrar(_gridHistoricoVentas, "Fecha", "Fecha");
+            Renombrar(_gridHistoricoVentas, "ProductoId", "ProdID");
+            Renombrar(_gridHistoricoVentas, "ProductoNombre", "Producto");
+            Renombrar(_gridHistoricoVentas, "Categoria", "Cat.");
+            Renombrar(_gridHistoricoVentas, "Unidades", "Uds");
+            Renombrar(_gridHistoricoVentas, "PrecioCompra", "P.Compra");
+            Renombrar(_gridHistoricoVentas, "PrecioVenta", "P.Venta");
+            Renombrar(_gridHistoricoVentas, "DescuentoPct", "Desc.%");
+            Renombrar(_gridHistoricoVentas, "MetodoPago", "Pago");
+            Renombrar(_gridHistoricoVentas, "Ciudad", "Ciudad");
+            Renombrar(_gridHistoricoVentas, "Vendedor", "Vend.");
+            Renombrar(_gridHistoricoVentas, "Subtotal", "Subt.");
+            Renombrar(_gridHistoricoVentas, "ImporteDescuento", "Desc.€");
+            Renombrar(_gridHistoricoVentas, "TotalVenta", "Total €");
+            Renombrar(_gridHistoricoVentas, "Coste", "Coste€");
+            Renombrar(_gridHistoricoVentas, "Beneficio", "Ben.€");
+
+            // Métricas por categoría
+            Renombrar(_gridMetricasGlobales, "TotalUnidades", "Uds");
+            Renombrar(_gridMetricasGlobales, "TotalIngresos", "Ingresos €");
+            Renombrar(_gridMetricasGlobales, "BeneficioTotal", "Ben.€");
+
+            // Inventario
+            Renombrar(_gridInventario, "Id", "ID");
+            Renombrar(_gridInventario, "PrecioVenta", "P.Venta");
+            Renombrar(_gridInventario, "ValorStockVenta", "Valor Stock");
+
+            // Top rentables
+            Renombrar(_gridTopRentables, "Id", "ID");
+            Renombrar(_gridTopRentables, "PrecioCompra", "P.Compra");
+            Renombrar(_gridTopRentables, "PrecioVenta", "P.Venta");
+            Renombrar(_gridTopRentables, "MargenUnitario", "Margen €");
+            Renombrar(_gridTopRentables, "MargenPct", "Margen %");
+
+            // Vendedores
+            Renombrar(_gridAnalisisVendedor, "VentasRealizadas", "Ventas");
+            Renombrar(_gridAnalisisVendedor, "UnidadesVendidas", "Uds");
+            Renombrar(_gridAnalisisVendedor, "TotalFacturado", "Total €");
+            Renombrar(_gridAnalisisVendedor, "BeneficioGenerado", "Ben.€");
+
+            // Pagos
+            Renombrar(_gridAnalisisMetodoPago, "MetodoPago", "Pago");
+            Renombrar(_gridAnalisisMetodoPago, "Transacciones", "Nº");
+            Renombrar(_gridAnalisisMetodoPago, "ImporteTotal", "Total €");
+
+            // Ciudades
+            Renombrar(_gridRendimientoCiudad, "NumeroVentas", "Ventas");
+            Renombrar(_gridRendimientoCiudad, "Ingresos", "Ingresos €");
+            Renombrar(_gridRendimientoCiudad, "Beneficio", "Ben.€");
+
+            // Coste vs ingresos
+            Renombrar(_gridCosteIngresoCategoria, "CostoVentas", "Coste €");
+            Renombrar(_gridCosteIngresoCategoria, "IngresosTotales", "Ingresos €");
+
+            // ===== FORMATOS =====
+
+            // Histórico: fecha con hora
+            if (_gridHistoricoVentas?.Columns != null && _gridHistoricoVentas.Columns.Contains("Fecha"))
+                _gridHistoricoVentas.Columns["Fecha"].DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+
+            // Decimales
+            FormatearDecimales(_gridHistoricoVentas, "PrecioCompra", "PrecioVenta", "DescuentoPct",
+                "Subtotal", "ImporteDescuento", "TotalVenta", "Coste", "Beneficio");
+
+            FormatearDecimales(_gridMetricasGlobales, "TotalIngresos", "BeneficioTotal");
+
+            FormatearDecimales(_gridInventario, "PrecioVenta", "ValorStockVenta");
+
+            FormatearDecimales(_gridTopRentables, "PrecioCompra", "PrecioVenta", "MargenUnitario");
+
+            FormatearDecimales(_gridAnalisisVendedor, "TotalFacturado", "BeneficioGenerado");
+
+            FormatearDecimales(_gridAnalisisMetodoPago, "ImporteTotal");
+
+            FormatearDecimales(_gridRendimientoCiudad, "Ingresos", "Beneficio");
+
+            FormatearDecimales(_gridCosteIngresoCategoria, "CostoVentas", "IngresosTotales");
+        }
+
+        private static void FormatearDecimales(DataGridView g, params string[] columnas)
+        {
+            if (g?.Columns == null || g.Columns.Count == 0) return;
+
+            foreach (var c in columnas)
+            {
+                if (!g.Columns.Contains(c)) continue;
+
+                g.Columns[c].DefaultCellStyle.Format = "N2";
+                g.Columns[c].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            }
+        }
+
+        private static void Renombrar(DataGridView g, string col, string header)
+        {
+            if (g?.Columns != null && g.Columns.Contains(col))
+                g.Columns[col].HeaderText = header;
+        }
+
+        private static void HabilitarOrdenClick(DataGridView grid, BindingSource bs)
+        {
+            if (grid == null || bs == null) return;
+
+            grid.ColumnHeaderMouseClick += (s, e) =>
+            {
+                var col = grid.Columns[e.ColumnIndex];
+                var prop = col.DataPropertyName;
+
+                if (string.IsNullOrWhiteSpace(prop)) return;
+                if (bs.DataSource == null) return;
+
+                // alternar asc/desc por columna
+                string key = $"sort:{prop}";
+                bool asc = !(grid.Tag is string t && t == key);
+                grid.Tag = asc ? key : "";
+
+                var list = ((System.Collections.IEnumerable)bs.DataSource).Cast<object>().ToList();
+
+                object GetPropValue(object x)
+                {
+                    var pi = x.GetType().GetProperty(prop);
+                    return pi?.GetValue(x, null);
+                }
+
+                bs.DataSource = asc
+                    ? list.OrderBy(GetPropValue).ToList()
+                    : list.OrderByDescending(GetPropValue).ToList();
+            };
         }
     }
 }

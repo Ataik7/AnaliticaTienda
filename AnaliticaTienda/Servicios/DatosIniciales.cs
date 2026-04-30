@@ -12,7 +12,7 @@ namespace AnaliticaTienda.Servicios
         {
             var rnd = new Random(12345);
 
-            string[] categorias = { "Bebidas", "Snacks", "Hogar", "Tecnologia", "Limpieza", "Moda", "Papeleria", "Salud" };
+            string[] categorias = { "Bebidas", "Snacks", "Hogar", "Tecnología", "Limpieza", "Moda", "Papeleria", "Salud" };
             string[] proveedores = { "Proveedor Norte", "Proveedor Centro", "Proveedor Sur", "Distribuciones Sol", "GlobalTrade", "IberSupply" };
 
             var productos = new List<Producto>(cantidad);
